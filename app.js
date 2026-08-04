@@ -1,20 +1,23 @@
-/* ═══════════════════════════════════════════════════════════
-   TUMADAM — Mini App chọn skin  ·  v2
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   TUMADAM · NEON DECK  —  v3
+   ═══════════════════════════════════════════════════════════════ */
 'use strict';
 
 const tg = window.Telegram?.WebApp;
 const $  = (id) => document.getElementById(id);
-const CART_KEY   = 'tumadam_cart_v1';
-const HAPTIC_KEY = 'tumadam_haptic';
 
-let DATA   = { heroes: [], letters: [], v: 0 };
-let ICONS  = {};            // hero_icons.json — nguồn chuẩn cho prefix ảnh
-let CART   = {};            // { skinId: {id, name, hero, heroId} }
+const MAX_PICK   = 10;                       // ← giới hạn 10 skin
+const CART_KEY   = 'tmd_cart_v3';
+const HAPTIC_KEY = 'tmd_haptic';
+const IMGC_KEY   = 'tmd_imgcache_v1';
+
+let DATA  = { heroes: [], letters: [], v: 0 };
+let ICONS = {};
+let CART  = {};
 let curLetter = null, curHero = null;
 let haptic = localStorage.getItem(HAPTIC_KEY) !== '0';
 
-/* ═══════════════ BỘ ICON SVG ═══════════════ */
+/* ════════════ ICON SVG ════════════ */
 const P = (d, w = 1.7) =>
   `<path d="${d}" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
 
@@ -28,305 +31,400 @@ const ICON = {
   back:  P('M14.5 5.5 8 12l6.5 6.5', 2),
   trash: P('M5 7h14M10 7V5.2A1.2 1.2 0 0 1 11.2 4h1.6A1.2 1.2 0 0 1 14 5.2V7M6.5 7l.8 11.2A1.8 1.8 0 0 0 9.1 20h5.8a1.8 1.8 0 0 0 1.8-1.8L17.5 7', 1.6),
   run:   P('M13 3 5 13.5h5.4L11 21l8-10.5h-5.4L13 3z', 1.6),
-  check: P('M5 12.6 9.6 17 19 7.5', 2.2),
+  check: P('M5 12.6 9.6 17 19 7.5', 2.3),
   close: P('M6.5 6.5l11 11M17.5 6.5l-11 11', 2),
-  user:  '<circle cx="12" cy="8.4" r="3.6" stroke="currentColor" stroke-width="1.7" fill="none"/>' +
-         P('M4.6 20a7.6 7.6 0 0 1 14.8 0', 1.7),
+  user:  '<circle cx="12" cy="8.4" r="3.6" stroke="currentColor" stroke-width="1.7" fill="none"/>' + P('M4.6 20a7.6 7.6 0 0 1 14.8 0', 1.7),
   shield:P('M12 3.4l7 2.8v5.1c0 4.2-2.9 7.7-7 9.3-4.1-1.6-7-5.1-7-9.3V6.2l7-2.8z', 1.6) + P('M9 12.2l2.1 2.1L15.3 10', 1.8),
   db:    '<ellipse cx="12" cy="6.4" rx="7" ry="2.9" stroke="currentColor" stroke-width="1.6" fill="none"/>' +
          P('M5 6.4v11.2c0 1.6 3.1 2.9 7 2.9s7-1.3 7-2.9V6.4M5 12c0 1.6 3.1 2.9 7 2.9s7-1.3 7-2.9', 1.6),
   wave:  P('M3 12c1.6-3.4 3.2-3.4 4.8 0s3.2 3.4 4.8 0 3.2-3.4 4.8 0 3.2 3.4 4.8 0', 1.7),
-  spark: P('M12 4l1.5 4.3L18 9.8l-4.5 1.5L12 15.6l-1.5-4.3L6 9.8l4.5-1.5L12 4z', 1.5) +
-         P('M18.5 15.5l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z', 1.4),
-  empty: P('M4.5 8.5 12 4l7.5 4.5v7L12 20l-7.5-4.5v-7z', 1.6) + P('M4.5 8.5 12 13l7.5-4.5M12 13v7', 1.6),
+  bolt:  P('M13 3 5 13.5h5.4L11 21l8-10.5h-5.4L13 3z', 1.6),
+  box:   P('M4.5 8.5 12 4l7.5 4.5v7L12 20l-7.5-4.5v-7z', 1.6) + P('M4.5 8.5 12 13l7.5-4.5M12 13v7', 1.6),
 };
 
-/** <span data-ic="hero"> -> nhét SVG vào. Gọi lại sau mỗi lần render. */
+const svg = (n) => `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">${ICON[n] || ''}</svg>`;
+
 function paintIcons(root = document) {
-  root.querySelectorAll('[data-ic]').forEach((el) => {
-    const name = el.dataset.ic;
-    if (!ICON[name] || el.dataset.icDone === '1') return;
-    el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">${ICON[name]}</svg>`;
-    el.dataset.icDone = '1';
+  root.querySelectorAll('[data-ic]:not([data-done])').forEach((el) => {
+    if (!ICON[el.dataset.ic]) return;
+    el.innerHTML = svg(el.dataset.ic);
+    el.dataset.done = '1';
   });
 }
-const svg = (name, cls = '') =>
-  `<span class="ic ${cls}"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true">${ICON[name] || ''}</svg></span>`;
 
-/* ═══════════════ TIỆN ÍCH ═══════════════ */
+/* ════════════ TIỆN ÍCH ════════════ */
 
-function buzz(style = 'light') {
+function buzz(k = 'light') {
   if (!haptic) return;
   try {
     const h = tg?.HapticFeedback;
-    if (style === 'ok')        h?.notificationOccurred('success');
-    else if (style === 'err')  h?.notificationOccurred('error');
-    else if (style === 'warn') h?.notificationOccurred('warning');
-    else                       h?.impactOccurred(style);
+    if (k === 'ok') h?.notificationOccurred('success');
+    else if (k === 'err') h?.notificationOccurred('error');
+    else if (k === 'warn') h?.notificationOccurred('warning');
+    else h?.impactOccurred(k);
   } catch (e) {}
 }
 
-function toast(msg, kind = 'info', ms = 2100) {
-  const stack = $('toastStack');
-  if (!stack) return;
+function toast(msg, kind = 'info', ms = 2000) {
+  const s = $('toasts');
   const el = document.createElement('div');
-  el.className = `toast-item ${kind}`;
-  const ic = { success: 'check', error: 'close', warn: 'spark', info: 'spark' }[kind];
-  el.innerHTML = `<span class="toast-ic">${svg(ic)}</span><span class="toast-tx"></span>`;
-  el.querySelector('.toast-tx').textContent = msg;
+  el.className = 'toast ' + kind;
+  el.innerHTML = svg({ ok: 'check', err: 'close', warn: 'bolt', info: 'bolt' }[kind]) + '<span></span>';
+  el.querySelector('span').textContent = msg;
   el.onclick = () => el.remove();
-  stack.appendChild(el);
-  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 260); }, ms);
+  s.appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 240); }, ms);
 }
 
-/** Bỏ dấu tiếng Việt nhưng GIỮ Đ riêng — khớp skin_db.py phía bot. */
 function noAccent(s) {
-  return (s || '').replace(/Đ/g, '\u0001').replace(/đ/g, '\u0001')
+  return (s || '').replace(/[Đđ]/g, '\u0001')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/\u0001/g, 'Đ');
 }
 
-const saveCart  = () => { try { localStorage.setItem(CART_KEY, JSON.stringify(CART)); } catch (e) {} };
-const loadCart  = () => { try { CART = JSON.parse(localStorage.getItem(CART_KEY) || '{}') || {}; } catch (e) { CART = {}; } };
-const cartCount = () => Object.keys(CART).length;
+const saveCart = () => { try { localStorage.setItem(CART_KEY, JSON.stringify(CART)); } catch (e) {} };
+const nCart = () => Object.keys(CART).length;
 
-/* ═══════════════ ICON CDN ═══════════════ */
-/*
- * Nguồn prefix: hero_icons.json (chuẩn) -> fallback 3 số đầu skin ID.
- * Có tướng lệch giữa 2 nguồn (vd Moren: skin 797xx nhưng icon prefix 170),
- * nên hero_icons.json luôn được ưu tiên.
- *
- *   Hero  : {cdn}{prefix}0.jpg          → 301500.jpg
- *   Skin  : {cdn}{prefix}{n}head.jpg    → 301509head.jpg   (n = 2 số cuối ID)
- */
+/* ════════════════════════════════════════════════════════════
+   ẢNH — nguyên nhân LAG chính ở bản cũ:
+   mỗi ô gọi thẳng CDN, ảnh nào 403 lại tải lại lần 2 (fallback)
+   => gấp đôi request, và tất cả nổ ra cùng lúc.
+
+   v3 xử lý:
+     1. IntersectionObserver — chỉ tải ảnh SẮP lọt vào màn hình
+     2. Hàng đợi giới hạn 6 request song song
+     3. Cache kết quả (head.jpg / .jpg / hỏng) vào localStorage
+        => lần sau vào là hiện ngay, không dò lại
+   ════════════════════════════════════════════════════════════ */
+
 let ICON_BASE = 'https://dl.ops.kgvn.garenanow.com/hok/VN/HeroHeadPath/';
 let ICON_CDN  = '30';
-const ICON_FALLBACK = () => ICON_BASE + '301140.jpg';   // Omega — luôn có
 
-function prefixOf(hero) {
-  const info = ICONS[hero.o || hero.n];
-  // Chỉ tin hero_icons khi prefix của nó KHỚP prefix thật lấy từ skin ID.
-  // Có tướng trùng tên nhưng khác prefix (Moren 170 / 797) — tra theo tên
-  // sẽ ra nhầm, nên prefix từ chính skin ID mới là chuẩn cuối cùng.
-  if (info && info.prefix && (!hero.i || info.prefix === hero.i)) return info.prefix;
-  return hero.i || (info && info.prefix) || '';
+let IMGC = {};
+try { IMGC = JSON.parse(localStorage.getItem(IMGC_KEY) || '{}') || {}; } catch (e) { IMGC = {}; }
+let imgcDirty = false;
+setInterval(() => {
+  if (!imgcDirty) return;
+  imgcDirty = false;
+  try { localStorage.setItem(IMGC_KEY, JSON.stringify(IMGC)); } catch (e) {}
+}, 2500);
+
+function prefixOf(h) {
+  const info = ICONS[h.o || h.n];
+  if (info && info.prefix && (!h.i || info.prefix === h.i)) return info.prefix;
+  return h.i || (info && info.prefix) || '';
 }
 
-function iconUrl(hero, skinId) {
-  const prefix = prefixOf(hero);
-  if (!prefix) return ICON_FALLBACK();
-  const info = ICONS[hero.o || hero.n];
+/** Khoá ảnh: 30 + prefix + variant. */
+function imgKey(h, skinId) {
+  const p = prefixOf(h);
+  if (!p) return null;
+  const info = ICONS[h.o || h.n];
   const cdn = (info && info.cdn_id) || ICON_CDN;
-  let variant = 0;
+  let v = 0;
   if (skinId) {
-    const n = parseInt(String(skinId).slice(-2), 10);   // 15009→9 · 13019→19
-    if (!Number.isNaN(n)) variant = n;
+    const n = parseInt(String(skinId).slice(-2), 10);
+    if (!Number.isNaN(n)) v = n;
   }
-  const id = `${cdn}${prefix}${variant}`;
-  return variant <= 0 ? `${ICON_BASE}${id}.jpg` : `${ICON_BASE}${id}head.jpg`;
+  return `${cdn}${p}${v}`;
 }
 
-/* Ảnh lỗi → thử biến thể khác → cuối cùng ảnh mặc định. */
-window.__iconFb = function (el) {
-  if (!el || el.dataset.done === '1') return;
-  const src = String(el.src || '');
-  if (!el.dataset.step && /head\.jpg$/i.test(src)) {
-    el.dataset.step = '1'; el.src = src.replace(/head\.jpg$/i, '.jpg'); return;
+const urlHead  = (k) => `${ICON_BASE}${k}head.jpg`;
+const urlPlain = (k) => `${ICON_BASE}${k}.jpg`;
+
+/** Avatar dự phòng: SVG gradient sinh từ chính khoá, luôn hiển thị đẹp. */
+function placeholderFor(key, label) {
+  let hash = 0;
+  for (const ch of String(key || label || '?')) hash = (hash * 31 + ch.charCodeAt(0)) & 0xffff;
+  const h1 = hash % 360, h2 = (h1 + 55) % 360;
+  const t = (label || '?').trim()[0]?.toUpperCase() || '?';
+  const s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="hsl(${h1},70%,42%)"/>
+      <stop offset="1" stop-color="hsl(${h2},72%,26%)"/></linearGradient></defs>
+    <rect width="100" height="100" fill="url(#g)"/>
+    <text x="50" y="50" font-family="Inter,sans-serif" font-size="44" font-weight="800"
+      fill="rgba(255,255,255,.9)" text-anchor="middle" dominant-baseline="central">${t}</text>
+  </svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(s);
+}
+
+/* hàng đợi tải ảnh */
+const QUEUE = [];
+let active = 0;
+const MAX_PARALLEL = 6;
+
+function pump() {
+  while (active < MAX_PARALLEL && QUEUE.length) {
+    const job = QUEUE.shift();
+    if (!job.el.isConnected) continue;
+    active++;
+    job.run().finally(() => { active--; pump(); });
   }
-  if (!el.dataset.step && /\d+\.jpg$/i.test(src)) {
-    el.dataset.step = '1'; el.src = src.replace(/\.jpg$/i, 'head.jpg'); return;
-  }
-  el.dataset.done = '1';
-  el.src = ICON_FALLBACK();
-};
+}
 
-const iconImg = (hero, skinId, cls) =>
-  `<img class="${cls}" src="${iconUrl(hero, skinId)}" alt="" loading="lazy" ` +
-  `decoding="async" referrerpolicy="no-referrer" onerror="__iconFb(this)">`;
+function loadInto(el) {
+  const key = el.dataset.key;
+  const label = el.dataset.label || '';
+  if (!key) { el.src = placeholderFor(key, label); return; }
 
-/* ═══════════════ NẠP DỮ LIỆU ═══════════════ */
+  const cached = IMGC[key];
+  if (cached === 'x') { el.src = placeholderFor(key, label); return; }
+  if (cached === 'p') { el.src = urlPlain(key); return; }
+  if (cached === 'h') { el.src = urlHead(key); return; }
 
-async function loadJson(name) {
-  const res = await fetch(`${name}?t=${Date.now()}`);
-  if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
-  return res.json();
+  // Chưa biết -> dò 1 lần rồi ghi nhớ kết quả
+  QUEUE.push({
+    el,
+    run: () => new Promise((done) => {
+      const tryUrl = (url, kind, next) => {
+        const probe = new Image();
+        probe.decoding = 'async';
+        probe.referrerPolicy = 'no-referrer';
+        probe.onload = () => {
+          IMGC[key] = kind; imgcDirty = true;
+          if (el.isConnected) el.src = url;
+          done();
+        };
+        probe.onerror = () => next();
+        probe.src = url;
+      };
+      tryUrl(urlHead(key), 'h', () =>
+        tryUrl(urlPlain(key), 'p', () => {
+          IMGC[key] = 'x'; imgcDirty = true;
+          if (el.isConnected) el.src = placeholderFor(key, label);
+          done();
+        }));
+    }),
+  });
+  pump();
+}
+
+const IO = ('IntersectionObserver' in window)
+  ? new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (!e.isIntersecting) return;
+        IO.unobserve(e.target);
+        loadInto(e.target);
+      });
+    }, { rootMargin: '400px 0px', threshold: 0.01 })
+  : null;
+
+/** <img> lười tải. Trả về HTML, phải gọi bindImgs() sau khi gắn vào DOM. */
+function img(h, skinId, cls, label) {
+  const key = imgKey(h, skinId) || '';
+  return `<img class="${cls}" alt="" decoding="async" referrerpolicy="no-referrer" ` +
+         `data-lazy="1" data-key="${key}" data-label="${(label || h.n || '').slice(0, 2)}" ` +
+         `src="${placeholderFor(key, label || h.n)}">`;
+}
+
+function bindImgs(root) {
+  root.querySelectorAll('img[data-lazy]').forEach((el) => {
+    el.removeAttribute('data-lazy');
+    IO ? IO.observe(el) : loadInto(el);
+  });
+}
+
+/* ════════════ DỮ LIỆU ════════════ */
+
+async function loadJson(n) {
+  const r = await fetch(`${n}?t=${DATA.v || Date.now()}`, { cache: 'default' });
+  if (!r.ok) throw new Error(`${n}: HTTP ${r.status}`);
+  return r.json();
 }
 
 async function loadAll() {
-  DATA = await loadJson('catalog.json');
-  DATA.heroes.forEach((h, i) => { h._i = i; });
+  const [cat, ico] = await Promise.allSettled([loadJson('catalog.json'), loadJson('hero_icons.json')]);
+  if (cat.status !== 'fulfilled') throw cat.reason;
+  DATA = cat.value;
 
-  try {
-    const raw = await loadJson('hero_icons.json');
+  if (ico.status === 'fulfilled') {
+    const raw = ico.value;
     ICON_BASE = raw._cdn_base || ICON_BASE;
-    ICON_CDN  = raw._cdn_id || ICON_CDN;
-    Object.entries(raw).forEach(([k, v]) => { if (!k.startsWith('_')) ICONS[k] = v; });
-  } catch (e) {
-    console.warn('hero_icons.json lỗi, dùng prefix từ skin ID:', e.message);
+    ICON_CDN  = raw._cdn_id   || ICON_CDN;
+    for (const [k, v] of Object.entries(raw)) if (!k.startsWith('_')) ICONS[k] = v;
   }
+
+  // gom sẵn theo chữ cái -> khỏi filter lại mỗi lần render
+  DATA.byLetter = {};
+  DATA.heroes.forEach((h) => (DATA.byLetter[h.l] ||= []).push(h));
 }
 
-const heroesOf = (letter) => DATA.heroes.filter((h) => h.l === letter);
-const pickedOf = (hero) => Object.values(CART).find((c) => c.heroId === hero.i);
+const heroesOf = (L) => DATA.byLetter[L] || [];
+const pickedOf = (h) => Object.values(CART).find((c) => c.heroId === h.i);
 
-/* ═══════════════ RENDER ═══════════════ */
+/* ════════════ RENDER ════════════ */
 
 function renderStats() {
-  $('stHeroes').textContent = DATA.heroes.length;
-  $('stSkins').textContent  = DATA.heroes.reduce((a, h) => a + h.s.length, 0);
-  $('stCart').textContent   = cartCount();
-  const b = $('cartBadge');
-  b.textContent = cartCount() || '';
-  cartCount() ? b.removeAttribute('data-zero') : b.setAttribute('data-zero', '');
+  $('stHero').textContent = DATA.heroes.length;
+  $('stSkin').textContent = DATA.heroes.reduce((a, h) => a + h.s.length, 0);
+  $('stCart').textContent = nCart();
+
+  const d = $('dot');
+  d.textContent = nCart() || '';
+  nCart() ? d.removeAttribute('data-zero') : d.setAttribute('data-zero', '');
+
+  const pct = Math.min(100, (nCart() / MAX_PICK) * 100);
+  const fill = $('capFill');
+  fill.style.width = pct + '%';
+  fill.className = 'cap-fill' + (nCart() >= MAX_PICK ? ' full' : nCart() >= MAX_PICK - 2 ? ' warn' : '');
+  $('capTx').textContent = `${nCart()} / ${MAX_PICK} SLOT`;
+  $('capHint').textContent =
+    nCart() >= MAX_PICK ? 'ĐẦY' : nCart() ? 'SẴN SÀNG CHẠY' : 'SẴN SÀNG';
 }
 
 function renderAlpha() {
-  const counts = {};
+  const cnt = {};
   Object.values(CART).forEach((c) => {
     const h = DATA.heroes.find((x) => x.i === c.heroId);
-    if (h) counts[h.l] = (counts[h.l] || 0) + 1;
+    if (h) cnt[h.l] = (cnt[h.l] || 0) + 1;
   });
 
-  const grid = $('alphaGrid');
-  grid.innerHTML = '';
-  DATA.letters.forEach((L) => {
-    const cell = document.createElement('button');
-    cell.className = 'alpha-cell' + (counts[L] ? ' has-pick' : '');
-    cell.innerHTML =
-      `<span class="ac-letter">${L}</span>` +
-      `<span class="ac-count">${heroesOf(L).length}</span>` +
-      (counts[L] ? `<span class="ac-badge">${counts[L]}</span>` : '');
-    cell.onclick = () => { buzz(); openLetter(L); };
-    grid.appendChild(cell);
+  const box = $('alpha');
+  const frag = document.createDocumentFragment();
+  DATA.letters.forEach((L, i) => {
+    const b = document.createElement('button');
+    b.className = 'alpha-cell' + (cnt[L] ? ' on' : '');
+    b.style.animationDelay = Math.min(i * 14, 320) + 'ms';
+    b.innerHTML = `<b>${L}</b><span class="n">${heroesOf(L).length}</span>` +
+                  (cnt[L] ? `<span class="pick">${cnt[L]}</span>` : '');
+    b.onclick = () => { buzz(); openLetter(L); };
+    frag.appendChild(b);
   });
-  $('alphaSkel').hidden = true;
+  box.replaceChildren(frag);
+  $('skel').hidden = true;
 }
 
 function openLetter(L) {
   curLetter = L;
-  $('alphaPane').hidden = true;
-  $('skinListPane').hidden = true;
-  $('heroListPane').hidden = false;
-  $('heroListTitle').textContent = `Chữ cái ${L}`;
+  $('paneAlpha').hidden = true;
+  $('paneSkins').hidden = true;
+  $('paneHeroes').hidden = false;
 
   const list = heroesOf(L);
-  $('heroListSub').textContent = `${list.length} tướng`;
+  $('hTitle').textContent = `CHỮ ${L}`;
+  $('hSub').textContent = `${list.length} tướng`;
 
-  const grid = $('heroGrid');
-  grid.innerHTML = '';
-  list.forEach((h) => {
-    const picked = pickedOf(h);
-    const cell = document.createElement('button');
-    cell.className = 'hero-cell' + (picked ? ' has-skin' : '');
-    cell.innerHTML =
-      `<div class="hc-ava-wrap">${iconImg(h, picked ? picked.id : null, 'hc-icon')}</div>
-       <div class="hc-meta">
-         <span class="hc-name"></span>
-         <span class="hc-skins"></span>
-       </div>
-       <span class="hc-chev">${svg('back', 'flip')}</span>`;
-    cell.querySelector('.hc-name').textContent = h.n;
-    cell.querySelector('.hc-skins').textContent =
-      picked ? `Đang chọn · ${picked.name}` : `${h.s.length} skin`;
-    cell.onclick = () => { buzz(); openHero(h); };
-    grid.appendChild(cell);
+  const box = $('heroes');
+  const frag = document.createDocumentFragment();
+  list.forEach((h, i) => {
+    const p = pickedOf(h);
+    const b = document.createElement('button');
+    b.className = 'hero-row' + (p ? ' on' : '');
+    b.style.animationDelay = Math.min(i * 12, 260) + 'ms';
+    b.innerHTML =
+      `${img(h, p ? p.id : null, 'hr-ava', h.n)}
+       <span class="hr-meta"><span class="hr-name"></span><span class="hr-sub"></span></span>
+       <span class="hr-chev">${svg('back')}</span>`;
+    b.querySelector('.hr-name').textContent = h.n;
+    b.querySelector('.hr-sub').textContent = p ? `▸ ${p.name}` : `${h.s.length} skin`;
+    b.onclick = () => { buzz(); openHero(h); };
+    frag.appendChild(b);
   });
-  syncBackButton();
+  box.replaceChildren(frag);
+  bindImgs(box);
+  window.scrollTo({ top: 0 });
+  syncBack();
 }
 
 function openHero(h) {
   curHero = h;
-  $('heroListPane').hidden = true;
-  $('skinListPane').hidden = false;
+  $('paneHeroes').hidden = true;
+  $('paneSkins').hidden = false;
 
-  const picked = pickedOf(h);
-  const banner = $('heroBanner');
-  banner.innerHTML =
-    `<div class="hb-glow"></div>
-     ${iconImg(h, picked ? picked.id : null, 'hb-ava')}
-     <div class="hb-meta">
-       <h2 class="hb-name"></h2>
-       <p class="hb-sub"></p>
-     </div>`;
-  banner.querySelector('.hb-name').textContent = h.n;
-  banner.querySelector('.hb-sub').textContent =
-    picked ? `Đang chọn: ${picked.name}` : `${h.s.length} skin · chạm để chọn`;
+  const p = pickedOf(h);
+  const bn = $('banner');
+  bn.innerHTML =
+    `${img(h, p ? p.id : null, 'bn-ava', h.n)}
+     <div class="bn-meta"><h2 class="bn-name"></h2><p class="bn-sub"></p></div>`;
+  bn.querySelector('.bn-name').textContent = h.n;
+  const sub = bn.querySelector('.bn-sub');
+  sub.textContent = p ? `▸ ĐANG CHỌN: ${p.name}` : `${h.s.length} skin · chạm để chọn`;
+  sub.className = 'bn-sub' + (p ? ' on' : '');
+  bindImgs(bn);
 
-  const grid = $('skinGrid');
-  grid.innerHTML = '';
-  h.s.forEach(([sid, sname]) => {
-    const cell = document.createElement('button');
-    cell.className = 'skin-icon-cell' + (CART[sid] ? ' selected' : '');
-    cell.innerHTML =
-      `<div class="sic-img">${iconImg(h, sid, 'sic-icon')}<span class="sic-tick">${svg('check')}</span></div>
-       <span class="sic-name"></span>`;
-    cell.querySelector('.sic-name').textContent = sname;
-    cell.onclick = () => toggleSkin(h, sid, sname);
-    grid.appendChild(cell);
+  const box = $('skins');
+  const frag = document.createDocumentFragment();
+  h.s.forEach(([sid, sname], i) => {
+    const b = document.createElement('button');
+    b.className = 'skin' + (CART[sid] ? ' on' : '');
+    b.style.animationDelay = Math.min(i * 22, 340) + 'ms';
+    b.innerHTML =
+      `<span class="skin-img">${img(h, sid, '', sname)}<span class="skin-tick">${svg('check')}</span></span>
+       <span class="skin-name"></span>`;
+    b.querySelector('.skin-name').textContent = sname;
+    b.onclick = () => toggleSkin(h, sid, sname);
+    frag.appendChild(b);
   });
-  syncBackButton();
+  box.replaceChildren(frag);
+  bindImgs(box);
+  window.scrollTo({ top: 0 });
+  syncBack();
 }
 
 function toggleSkin(h, sid, sname) {
   if (CART[sid]) {
     delete CART[sid];
-    buzz('warn'); toast(`Bỏ chọn ${sname}`, 'warn');
+    buzz('warn'); toast('Đã bỏ ' + sname, 'warn');
   } else {
     const old = Object.entries(CART).find(([, c]) => c.heroId === h.i);
+    // Đầy slot: chỉ chặn khi đây là TƯỚNG MỚI. Đổi skin cùng tướng vẫn cho.
+    if (!old && nCart() >= MAX_PICK) {
+      buzz('err');
+      toast(`Tối đa ${MAX_PICK} skin! Bỏ bớt rồi chọn lại.`, 'err', 2800);
+      return;
+    }
     if (old) delete CART[old[0]];
     CART[sid] = { id: sid, name: sname, hero: h.n, heroId: h.i };
-    buzz('ok'); toast(old ? `Đổi sang ${sname}` : `Đã thêm ${sname}`, 'success');
+    buzz('ok'); toast(old ? 'Đổi sang ' + sname : 'Đã thêm ' + sname, 'ok');
   }
   saveCart(); renderStats(); renderCart(); openHero(h);
 }
 
 function renderCart() {
-  const list  = $('cartList');
+  const box = $('cart');
   const items = Object.values(CART);
-  $('cartActions').hidden = !items.length;
+  $('cartAct').hidden = !items.length;
   $('cartSub').textContent = items.length
-    ? `${items.length} skin · mỗi tướng 1 skin`
-    : 'Mỗi tướng chọn 1 skin';
+    ? `${items.length}/${MAX_PICK} skin · mỗi tướng 1 skin`
+    : `Tối đa ${MAX_PICK} skin · mỗi tướng 1 skin`;
 
   if (!items.length) {
-    list.innerHTML =
-      `<div class="empty"><div class="empty-icon ei-svg">${svg('empty')}</div>
-       <p>Chưa chọn skin nào.<br>Qua tab <b>Tướng</b> để bắt đầu.</p></div>`;
+    box.innerHTML = `<div class="empty">${svg('box')}<p>Khoang chứa trống.<br>Qua tab <b>TƯỚNG</b> để bắt đầu.</p></div>`;
+    paintIcons(box);
     return;
   }
 
-  list.innerHTML = '';
-  items.forEach((c) => {
-    const hero = DATA.heroes.find((x) => x.i === c.heroId) || { n: c.hero, i: c.heroId };
+  const frag = document.createDocumentFragment();
+  items.forEach((c, i) => {
+    const h = DATA.heroes.find((x) => x.i === c.heroId) || { n: c.hero, i: c.heroId };
     const row = document.createElement('div');
-    row.className = 'cart-item';
+    row.className = 'ci';
+    row.style.animationDelay = Math.min(i * 30, 250) + 'ms';
     row.innerHTML =
-      `${iconImg(hero, c.id, 'cart-avatar')}
-       <div class="ci-meta">
-         <div class="cart-name"></div>
-         <div class="cart-source"></div>
-       </div>
-       <button class="cart-del" aria-label="Xoá">${svg('close')}</button>`;
-    row.querySelector('.cart-name').textContent = c.name;
-    row.querySelector('.cart-source').textContent = c.hero;
-    row.querySelector('.cart-del').onclick = () => {
-      row.classList.add('removing'); buzz('warn');
+      `${img(h, c.id, 'ci-ava', c.name)}
+       <div class="ci-meta"><div class="ci-name"></div><div class="ci-sub"></div></div>
+       <button class="ci-x">${svg('close')}</button>`;
+    row.querySelector('.ci-name').textContent = c.name;
+    row.querySelector('.ci-sub').textContent = c.hero;
+    row.querySelector('.ci-x').onclick = () => {
+      row.classList.add('out'); buzz('warn');
       setTimeout(() => {
         delete CART[c.id];
         saveCart(); renderStats(); renderCart(); renderAlpha();
       }, 260);
     };
-    list.appendChild(row);
+    frag.appendChild(row);
   });
+  box.replaceChildren(frag);
+  bindImgs(box);
 }
 
-/* ═══════════════ TÌM KIẾM ═══════════════ */
+/* ════════════ TÌM KIẾM ════════════ */
 
-function doSearch(qRaw) {
-  const box  = $('heroSearchResults');
-  const grid = $('alphaGrid');
-  const q = noAccent(qRaw.trim()).toLowerCase();
-
+function search(raw) {
+  const box = $('results'), grid = $('alpha');
+  const q = noAccent(raw.trim()).toLowerCase();
   if (q.length < 2) { box.hidden = true; grid.hidden = false; return; }
   grid.hidden = true; box.hidden = false;
 
@@ -335,213 +433,249 @@ function doSearch(qRaw) {
   for (const h of DATA.heroes) {
     if (noAccent(h.n).toLowerCase().includes(q)) hits.push({ h });
     for (const [sid, sname] of h.s) {
-      if (noAccent(sname).toLowerCase().includes(q) || sid.includes(q)) {
-        hits.push({ h, sid, sname });
-      }
-      if (hits.length > 60) break outer;
+      if (noAccent(sname).toLowerCase().includes(q) || sid.includes(q)) hits.push({ h, sid, sname });
+      if (hits.length >= 40) break outer;
     }
   }
 
   if (!hits.length) {
-    box.innerHTML = `<div class="empty"><div class="empty-icon ei-svg">${svg('search')}</div><p>Không tìm thấy.</p></div>`;
+    box.innerHTML = `<div class="empty">${svg('search')}<p>Không tìm thấy.</p></div>`;
     return;
   }
 
-  box.innerHTML = '';
-  hits.slice(0, 60).forEach((hit) => {
-    const row = document.createElement('div');
-    row.className = 'search-row';
+  const frag = document.createDocumentFragment();
+  hits.forEach((x) => {
+    const row = document.createElement('button');
+    row.className = 'hero-row';
     row.innerHTML =
-      `${iconImg(hit.h, hit.sid || null, 'sr-icon')}
-       <div class="sr-meta"><div class="sr-name"></div><div class="sr-hero"></div></div>
-       <span class="chevron">${svg('back', 'flip')}</span>`;
-    row.querySelector('.sr-name').textContent = hit.sname || hit.h.n;
-    row.querySelector('.sr-hero').textContent =
-      hit.sname ? hit.h.n : `Tướng · ${hit.h.s.length} skin`;
+      `${img(x.h, x.sid || null, 'hr-ava', x.sname || x.h.n)}
+       <span class="hr-meta"><span class="hr-name"></span><span class="hr-sub"></span></span>
+       <span class="hr-chev">${svg('back')}</span>`;
+    row.querySelector('.hr-name').textContent = x.sname || x.h.n;
+    row.querySelector('.hr-sub').textContent = x.sname ? x.h.n : `${x.h.s.length} skin`;
     row.onclick = () => {
       buzz();
-      $('heroSearch').value = ''; $('heroSearchClr').hidden = true; doSearch('');
-      openLetter(hit.h.l); openHero(hit.h);
+      $('q').value = ''; $('qx').hidden = true; search('');
+      openLetter(x.h.l); openHero(x.h);
     };
-    box.appendChild(row);
+    frag.appendChild(row);
   });
+  box.replaceChildren(frag);
+  bindImgs(box);
 }
 
-/* ═══════════════ GỬI VỀ BOT ═══════════════ */
+/* ════════════ GỬI VỀ BOT ════════════ */
 
 function runMod() {
   const ids = Object.keys(CART);
-  if (!ids.length) { toast('Chưa chọn skin nào!', 'error'); buzz('err'); return; }
+  if (!ids.length) { toast('Chưa chọn skin nào!', 'err'); buzz('err'); return; }
+  if (ids.length > MAX_PICK) { toast(`Tối đa ${MAX_PICK} skin!`, 'err'); buzz('err'); return; }
 
-  const payload = {
-    type: 'build',
-    ids,
-    names: Object.values(CART).map((c) => `${c.hero} — ${c.name}`),
-    ts: Date.now(),
-  };
-
-  buzz('ok');
-  try {
-    // sendData CHỈ hoạt động khi app mở qua Menu Button / Reply Keyboard Button.
-    tg.sendData(JSON.stringify(payload));
-    toast('Đã gửi cho bot…', 'success');
-    setTimeout(() => tg.close(), 400);
-  } catch (e) {
-    toast('Không gửi được: ' + e.message, 'error', 4000);
-  }
-}
-
-/* ═══════════════ ĐIỀU HƯỚNG ═══════════════ */
-
-function showTab(name) {
-  document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
-  $('page-' + name).classList.add('active');
-  document.querySelectorAll('.tab').forEach((t) =>
-    t.classList.toggle('active', t.dataset.tab === name));
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-  syncBackButton();
-}
-
-function backToAlpha() {
-  $('heroListPane').hidden = true;
-  $('skinListPane').hidden = true;
-  $('alphaPane').hidden = false;
-  renderAlpha(); syncBackButton();
-}
-
-function backToHeroes() {
-  $('skinListPane').hidden = true;
-  $('heroListPane').hidden = false;
-  if (curLetter) openLetter(curLetter);
-  syncBackButton();
-}
-
-function syncBackButton() {
-  if (!tg?.BackButton) return;
-  const deep = !$('heroListPane').hidden || !$('skinListPane').hidden;
-  deep ? tg.BackButton.show() : tg.BackButton.hide();
-}
-
-/* ═══════════════ THÔNG TIN TELEGRAM ═══════════════ */
-
-function renderUser() {
-  const u = tg?.initDataUnsafe?.user;
-  const tags = $('userTags');
-  const av   = $('avatar');
-  tags.innerHTML = '';
-
-  if (!u) {
-    $('userName').textContent = 'Chưa đăng nhập';
-    av.innerHTML = svg('user');
-    av.classList.add('ph');
-    tags.innerHTML = `<span class="utag warn">Mở từ Telegram để đồng bộ</span>`;
-    $('infoAcc').textContent = 'Chưa có dữ liệu Telegram';
-    $('avaStatus').classList.add('off');
+  if (!tg || typeof tg.sendData !== 'function') {
+    toast('Hãy mở app từ trong Telegram', 'err', 3500);
     return;
   }
 
-  const full = [u.first_name, u.last_name].filter(Boolean).join(' ') || 'Người dùng';
-  $('userName').textContent = full;
+  buzz('ok');
+  $('launch').classList.add('on');
+  paintIcons($('launch'));
 
-  if (u.photo_url) {
-    av.style.backgroundImage = `url("${u.photo_url}")`;
-    av.classList.add('has-photo');
-  } else {
-    av.textContent = full.trim()[0].toUpperCase();
+  try {
+    tg.sendData(JSON.stringify({
+      type: 'build', ids,
+      names: Object.values(CART).map((c) => `${c.hero} — ${c.name}`),
+      ts: Date.now(),
+    }));
+    $('launchTx').textContent = 'ĐÃ GỬI · ĐANG ĐÓNG…';
+    setTimeout(() => tg.close(), 500);
+  } catch (e) {
+    $('launch').classList.remove('on');
+    toast('Không gửi được: ' + e.message, 'err', 4000);
   }
-
-  const add = (txt, cls = '') => {
-    const s = document.createElement('span');
-    s.className = 'utag ' + cls;
-    s.textContent = txt;
-    tags.appendChild(s);
-  };
-  add('ID ' + u.id, 'id');
-  if (u.username) add('@' + u.username, 'at');
-  if (u.is_premium) add('PREMIUM', 'prem');
-  if (u.language_code) add(u.language_code.toUpperCase(), 'lang');
-
-  $('infoAcc').textContent =
-    `${full}${u.username ? ' · @' + u.username : ''} · ID ${u.id}`;
 }
 
-/* ═══════════════ KHỞI ĐỘNG ═══════════════ */
+/* ════════════ ĐIỀU HƯỚNG ════════════ */
+
+function showTab(n) {
+  document.querySelectorAll('.page').forEach((p) => p.classList.remove('active'));
+  $('p-' + n).classList.add('active');
+  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === n));
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  syncBack();
+}
+
+function backAlpha() {
+  $('paneHeroes').hidden = true; $('paneSkins').hidden = true;
+  $('paneAlpha').hidden = false;
+  renderAlpha(); syncBack();
+}
+function backHeroes() {
+  $('paneSkins').hidden = true; $('paneHeroes').hidden = false;
+  if (curLetter) openLetter(curLetter);
+  syncBack();
+}
+function syncBack() {
+  if (!tg?.BackButton) return;
+  const deep = !$('paneHeroes').hidden || !$('paneSkins').hidden;
+  deep ? tg.BackButton.show() : tg.BackButton.hide();
+}
+
+/* ════════════ THÔNG TIN NGƯỜI DÙNG ════════════
+   initDataUnsafe RỖNG khi app mở bằng nút bàn phím, và photo_url chỉ có
+   khi mở từ attachment menu. Nên bot còn nhét thêm thông tin vào URL
+   (?uid=&nm=&un=&pr=) làm nguồn dự phòng.
+   ══════════════════════════════════════════════ */
+
+function readUser() {
+  const u = tg?.initDataUnsafe?.user;
+  if (u && u.id) return { ...u, _src: 'initData' };
+
+  const q = new URLSearchParams(location.search);
+  if (q.get('uid')) {
+    return {
+      id: q.get('uid'),
+      first_name: q.get('nm') || '',
+      username: q.get('un') || '',
+      is_premium: q.get('pr') === '1',
+      language_code: q.get('lc') || '',
+      _src: 'url',
+    };
+  }
+  return null;
+}
+
+function renderUser() {
+  const u = readUser();
+  const tags = $('uTags');
+  const ava  = $('ava');
+  tags.replaceChildren();
+
+  if (!u) {
+    $('uName').textContent = 'KHÁCH';
+    ava.innerHTML = svg('user');
+    ava.style.color = 'var(--tx-dim)';
+    $('avaDot').classList.add('off');
+    const t = document.createElement('span');
+    t.className = 'tag warn'; t.textContent = 'MỞ TỪ TELEGRAM';
+    tags.appendChild(t);
+    $('accInfo').textContent = 'Chưa nhận được dữ liệu Telegram';
+    return;
+  }
+
+  const name = [u.first_name, u.last_name].filter(Boolean).join(' ') || 'Người dùng';
+  $('uName').textContent = name.toUpperCase();
+  $('avaDot').classList.remove('off');
+
+  // photo_url chỉ có khi mở từ attachment menu -> còn lại dùng avatar sinh sẵn
+  const src = u.photo_url || placeholderFor('u' + u.id, name);
+  ava.innerHTML = `<img alt="" decoding="async" referrerpolicy="no-referrer" src="${src}">`;
+  if (u.photo_url) {
+    ava.querySelector('img').onerror = function () {
+      this.src = placeholderFor('u' + u.id, name);
+    };
+  }
+
+  const add = (tx, cls = '') => {
+    const s = document.createElement('span');
+    s.className = 'tag ' + cls; s.textContent = tx;
+    tags.appendChild(s);
+  };
+  add('ID ' + u.id);
+  if (u.username) add('@' + u.username, 'at');
+  if (u.is_premium) add('PREMIUM', 'prem');
+  if (u.language_code) add(String(u.language_code).toUpperCase(), 'lang');
+
+  $('accInfo').textContent =
+    `${name}${u.username ? ' · @' + u.username : ''} · ID ${u.id} · nguồn: ${u._src}`;
+}
+
+/* ════════════ KHỞI ĐỘNG ════════════ */
 
 async function init() {
   try {
     tg?.ready(); tg?.expand();
-    tg?.setHeaderColor?.('#07080d');
+    tg?.setHeaderColor?.('#04060e');
+    tg?.setBackgroundColor?.('#04060e');
     tg?.disableVerticalSwipes?.();
-    if (tg?.colorScheme === 'light') document.body.classList.add('tg-light');
   } catch (e) {}
 
   paintIcons();
   renderUser();
-  loadCart();
+
+  try { CART = JSON.parse(localStorage.getItem(CART_KEY) || '{}') || {}; } catch (e) { CART = {}; }
 
   try {
     await loadAll();
   } catch (e) {
-    $('alphaSkel').hidden = true;
-    $('alphaGrid').innerHTML =
-      `<div class="empty" style="grid-column:1/-1"><div class="empty-icon ei-svg">${svg('empty')}</div>
+    $('skel').hidden = true;
+    $('alpha').innerHTML =
+      `<div class="empty" style="grid-column:1/-1">${svg('box')}
        <p>Không tải được <b>catalog.json</b>.<br>Chạy <code>build_catalog.py</code> rồi push lên Pages.</p></div>`;
-    toast(e.message, 'error', 5000);
+    toast(e.message, 'err', 5000);
     return;
   }
 
-  // Bỏ skin không còn tồn tại sau khi game update
+  // dọn skin không còn tồn tại + cắt xuống đúng giới hạn
   const valid = new Set();
-  DATA.heroes.forEach((h) => h.s.forEach(([sid]) => valid.add(sid)));
-  let dropped = 0;
-  Object.keys(CART).forEach((sid) => { if (!valid.has(sid)) { delete CART[sid]; dropped++; } });
-  if (dropped) { saveCart(); toast(`Đã gỡ ${dropped} skin cũ`, 'warn', 3500); }
+  DATA.heroes.forEach((h) => h.s.forEach(([s]) => valid.add(s)));
+  let gone = 0;
+  Object.keys(CART).forEach((s) => { if (!valid.has(s)) { delete CART[s]; gone++; } });
 
-  $('infoVer').textContent = DATA.v
-    ? new Date(DATA.v * 1000).toLocaleString('vi-VN')
-    : '—';
+  let cut = 0;
+  const keys = Object.keys(CART);
+  if (keys.length > MAX_PICK) {
+    keys.slice(MAX_PICK).forEach((s) => { delete CART[s]; cut++; });
+  }
+  if (gone || cut) saveCart();
+  if (gone) toast(`Đã gỡ ${gone} skin cũ`, 'warn', 3200);
+  if (cut) toast(`Giữ lại ${MAX_PICK} skin đầu (giới hạn mới)`, 'warn', 3600);
+
+  $('verInfo').textContent = DATA.v ? new Date(DATA.v * 1000).toLocaleString('vi-VN') : '—';
+  $('cacheInfo').textContent = `${Object.keys(IMGC).length} ảnh đã ghi nhớ · chạm để xoá`;
 
   renderStats(); renderAlpha(); renderCart(); paintIcons();
 
-  /* sự kiện */
   document.querySelectorAll('.tab').forEach((t) => {
     t.onclick = () => { buzz(); showTab(t.dataset.tab); };
   });
-  $('heroBack').onclick = () => { buzz(); backToAlpha(); };
-  $('skinBack').onclick = () => { buzz(); backToHeroes(); };
-  $('btnRun').onclick   = runMod;
-  $('btnClear').onclick = () => {
-    if (!cartCount()) return;
+  $('backAlpha').onclick  = () => { buzz(); backAlpha(); };
+  $('backHeroes').onclick = () => { buzz(); backHeroes(); };
+  $('btnRun').onclick     = runMod;
+  $('btnClear').onclick   = () => {
+    if (!nCart()) return;
     CART = {}; saveCart(); renderStats(); renderCart(); renderAlpha();
     buzz('warn'); toast('Đã xoá tất cả', 'warn');
   };
 
-  const si = $('heroSearch');
+  const q = $('q');
   let t = null;
-  si.oninput = () => {
-    $('heroSearchClr').hidden = !si.value;
+  q.oninput = () => {
+    $('qx').hidden = !q.value;
     clearTimeout(t);
-    t = setTimeout(() => doSearch(si.value), 170);
+    t = setTimeout(() => search(q.value), 160);
   };
-  $('heroSearchClr').onclick = () => {
-    si.value = ''; $('heroSearchClr').hidden = true; doSearch('');
-  };
+  $('qx').onclick = () => { q.value = ''; $('qx').hidden = true; search(''); };
 
-  const setToggle = () => $('hapticToggle').classList.toggle('on', haptic);
-  setToggle();
-  $('cardHaptic').onclick = () => {
+  const sw = () => $('swHaptic').classList.toggle('on', haptic);
+  sw();
+  $('cHaptic').onclick = () => {
     haptic = !haptic;
     localStorage.setItem(HAPTIC_KEY, haptic ? '1' : '0');
-    setToggle(); buzz();
-    toast('Haptic: ' + (haptic ? 'Bật' : 'Tắt'), 'info');
+    sw(); buzz(); toast('Haptic: ' + (haptic ? 'BẬT' : 'TẮT'), 'info');
+  };
+
+  $('cCache').onclick = () => {
+    IMGC = {};
+    try { localStorage.removeItem(IMGC_KEY); } catch (e) {}
+    $('cacheInfo').textContent = '0 ảnh đã ghi nhớ · chạm để xoá';
+    buzz('warn'); toast('Đã xoá bộ nhớ đệm ảnh', 'warn');
   };
 
   tg?.BackButton?.onClick?.(() => {
-    if (!$('skinListPane').hidden) backToHeroes();
-    else if (!$('heroListPane').hidden) backToAlpha();
+    if (!$('paneSkins').hidden) backHeroes();
+    else if (!$('paneHeroes').hidden) backAlpha();
   });
-
-  syncBackButton();
+  syncBack();
 }
 
 init();
