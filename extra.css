@@ -1,5 +1,31 @@
 /* ═══ Bổ sung cho TUMADAM Mini App ═══ */
 
+/* ── icon CDN ── */
+.hero-cell .hc-icon{
+  width:100%;height:100%;object-fit:cover;display:block;border-radius:16px;
+  background:rgba(255,255,255,.04);
+}
+.skin-cell .sk-icon{
+  flex-shrink:0;width:48px;height:48px;border-radius:50%;object-fit:cover;
+  background:rgba(255,255,255,.05);box-shadow:0 3px 12px rgba(0,0,0,.35);
+  transition:transform .2s var(--ease-spring), box-shadow .25s;
+}
+.skin-cell:active .sk-icon{ transform:scale(.93) }
+.skin-cell.selected .sk-icon{
+  box-shadow:0 0 0 2px var(--c-mint), 0 4px 16px rgba(63,191,150,.45);
+}
+.cart-item .cart-avatar{
+  width:40px;height:40px;border-radius:12px;object-fit:cover;
+  background:rgba(255,255,255,.05);
+  box-shadow:0 4px 12px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.12);
+}
+.search-row .sr-icon{
+  flex-shrink:0;width:38px;height:38px;border-radius:11px;object-fit:cover;
+  background:rgba(255,255,255,.05);
+}
+/* ảnh chưa tải xong không nhảy layout */
+img.hc-icon, img.sk-icon, img.cart-avatar, img.sr-icon{ content-visibility:auto }
+
 .alpha-cell .ac-letter{ font-size:19px; font-weight:900; letter-spacing:-.02em }
 
 /* badge số skin đã chọn của 1 chữ cái */
