@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover" />
+<meta name="theme-color" content="#07080d" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>TUMADAM — Mod Skin</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=1">
+<link rel="stylesheet" href="extra.css?v=1">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+
+<!-- ═══ BACKGROUND ═══ -->
+<div id="aurora">
+  <span class="blob b1"></span><span class="blob b2"></span>
+  <span class="blob b3"></span><span class="blob b4"></span>
+</div>
+<div id="noise"></div>
+
+<!-- ═══ TOPBAR ═══ -->
+<header class="topbar">
+  <div class="user-card" id="userCard">
+    <div class="avatar" id="avatar"></div>
+    <div class="user-meta">
+      <div class="user-name" id="userName">Đang tải…</div>
+      <div class="user-id" id="userId">—</div>
+    </div>
+    <div class="vip-pill none" id="modePill">
+      <span class="vip-dot"></span>
+      <span id="modeText">Normal · Encode</span>
+    </div>
+  </div>
+
+  <div class="stats-strip" id="statsStrip">
+    <div class="stat-chip"><span class="sv" id="stHeroes">0</span><span class="sl">Tướng</span></div>
+    <div class="stat-chip"><span class="sv" id="stSkins">0</span><span class="sl">Skin</span></div>
+    <div class="stat-chip"><span class="sv" id="stCart">0</span><span class="sl">Đã chọn</span></div>
+  </div>
+</header>
+
+<!-- ═══ TABS ═══ -->
+<nav class="tabs" id="tabsBar">
+  <button class="tab active" data-tab="heroes">
+    <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3l2.2 4.5 5 .7-3.6 3.5.9 5L12 14.8 7.5 16.7l.9-5L4.8 8.2l5-.7L12 3z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+    <label>Tướng</label>
+  </button>
+  <button class="tab" data-tab="cart">
+    <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5h2l1.2 9.2a2 2 0 0 0 2 1.8h7.6a2 2 0 0 0 2-1.7L20 8H7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="19.5" r="1.4" fill="currentColor"/><circle cx="17" cy="19.5" r="1.4" fill="currentColor"/></svg></span>
+    <label>Giỏ <em id="cartBadge" data-zero></em></label>
+  </button>
+  <button class="tab" data-tab="more">
+    <span class="tab-ico"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+    <label>Khác</label>
+  </button>
+</nav>
+
+<main>
+
+<!-- ═══ TƯỚNG ═══ -->
+<section class="page active" id="page-heroes">
+
+  <div class="alpha-pane" id="alphaPane">
+    <div class="page-head">
+      <div>
+        <h2>Chọn Tướng</h2>
+        <p>Lọc theo chữ cái đầu hoặc tìm nhanh</p>
+      </div>
+    </div>
+
+    <div class="search-box">
+      <span class="sb-icon"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.7"/><path d="M16 16l4.2 4.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>
+      <input id="heroSearch" type="search" placeholder="Tìm tướng hoặc skin..." autocomplete="off" enterkeyhint="search" />
+      <button class="clr" id="heroSearchClr" type="button" aria-label="Clear" hidden>×</button>
+    </div>
+
+    <div class="skel-grid" id="alphaSkel" aria-hidden="true">
+      <div class="skel-cell"></div><div class="skel-cell"></div><div class="skel-cell"></div>
+      <div class="skel-cell"></div><div class="skel-cell"></div><div class="skel-cell"></div>
+      <div class="skel-cell"></div><div class="skel-cell"></div><div class="skel-cell"></div>
+      <div class="skel-cell"></div><div class="skel-cell"></div><div class="skel-cell"></div>
+    </div>
+    <div class="alpha-grid" id="alphaGrid"></div>
+    <div class="search-results" id="heroSearchResults" hidden></div>
+  </div>
+
+  <div class="hero-list-pane" id="heroListPane" hidden>
+    <button class="back-btn" id="heroBack">‹ Đổi chữ cái</button>
+    <div class="page-head">
+      <div><h2 id="heroListTitle"></h2><p id="heroListSub">Chọn tướng để xem skin</p></div>
+    </div>
+    <div class="hero-grid" id="heroGrid"></div>
+  </div>
+
+  <div class="skin-list-pane" id="skinListPane" hidden>
+    <button class="back-btn" id="skinBack">‹ Đổi tướng</button>
+    <div class="page-head">
+      <div><h2 id="skinListTitle"></h2><p id="skinListSub">Bấm để thêm vào giỏ</p></div>
+    </div>
+    <div class="skin-grid" id="skinGrid"></div>
+  </div>
+</section>
+
+<!-- ═══ GIỎ ═══ -->
+<section class="page" id="page-cart">
+  <div class="page-head">
+    <div><h2>Skin Đã Chọn</h2><p id="cartSub">Mỗi tướng chỉ chọn được 1 skin</p></div>
+  </div>
+  <div class="cart-list" id="cartList"></div>
+  <div class="cart-actions" id="cartActions" hidden>
+    <button class="btn-primary" id="btnRun">🚀 CHẠY MOD — TẠO FILE</button>
+    <button class="btn-danger" id="btnClear">🗑 Xoá tất cả</button>
+  </div>
+</section>
+
+<!-- ═══ KHÁC ═══ -->
+<section class="page" id="page-more">
+  <div class="page-head">
+    <div><h2>Khác</h2><p>Thông tin &amp; tuỳ chọn</p></div>
+  </div>
+  <div class="settings-list">
+    <div class="set-card">
+      <div class="extra-body">
+        <h4>Chế độ mod</h4>
+        <p id="infoMode">Normal · Encode (cố định)</p>
+      </div>
+    </div>
+    <div class="set-card" id="cardHaptic">
+      <div class="extra-body">
+        <h4>Rung phản hồi</h4>
+        <p>Haptic khi bấm nút</p>
+      </div>
+      <span class="chevron" id="hapticState">Bật</span>
+    </div>
+    <div class="set-card" id="cardCopyId">
+      <div class="extra-body">
+        <h4>Copy ID đã chọn</h4>
+        <p id="copyIdSub">Sao chép danh sách ID</p>
+      </div>
+      <span class="chevron">›</span>
+    </div>
+    <div class="set-card" id="cardVersion">
+      <div class="extra-body">
+        <h4>Phiên bản dữ liệu</h4>
+        <p id="infoVer">—</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script src="app.js?v=1"></script>
+</body>
+</html>
