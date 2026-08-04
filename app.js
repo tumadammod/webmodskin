@@ -63,6 +63,52 @@ function loadCart() {
 
 const cartCount = () => Object.keys(CART).length;
 
+/* ───────────── icon CDN Garena KGVN ───────────── */
+/*
+ * Hero mặc định : {cdn}{prefix}0.jpg        → 301500.jpg
+ * Skin variant n: {cdn}{prefix}{n}head.jpg  → 301509head.jpg
+ * n = phần đuôi của skin ID sau 3 số prefix (15009 → 9, 13019 → 19)
+ */
+const ICON_BASE = 'https://dl.ops.kgvn.garenanow.com/hok/VN/HeroHeadPath/';
+const ICON_CDN = '30';
+const ICON_FALLBACK = ICON_BASE + '301140.jpg';   // Omega — luôn tồn tại
+
+function iconUrl(prefix, skinId) {
+  if (!prefix) return ICON_FALLBACK;
+  let variant = 0;
+  if (skinId) {
+    const n = parseInt(String(skinId).slice(prefix.length), 10);
+    if (!Number.isNaN(n)) variant = n;
+  }
+  const id = `${ICON_CDN}${prefix}${variant}`;
+  return variant <= 0 ? `${ICON_BASE}${id}.jpg` : `${ICON_BASE}${id}head.jpg`;
+}
+
+/* Ảnh lỗi -> thử biến thể khác -> cuối cùng dùng ảnh mặc định.
+   Gắn vào window vì onerror trong HTML inline gọi tới. */
+window.__iconFb = function (el) {
+  if (!el || el.dataset.done === '1') return;
+  const src = String(el.src || '');
+  if (!el.dataset.step && /head\.jpg$/i.test(src)) {
+    el.dataset.step = '1';
+    el.src = src.replace(/head\.jpg$/i, '.jpg');
+    return;
+  }
+  if (!el.dataset.step && /\d+\.jpg$/i.test(src)) {
+    el.dataset.step = '1';
+    el.src = src.replace(/\.jpg$/i, 'head.jpg');
+    return;
+  }
+  el.dataset.done = '1';
+  el.src = ICON_FALLBACK;
+};
+
+function iconImg(prefix, skinId, cls) {
+  return `<img class="${cls}" src="${iconUrl(prefix, skinId)}" alt="" `
+       + `loading="lazy" decoding="async" referrerpolicy="no-referrer" `
+       + `onerror="__iconFb(this)">`;
+}
+
 /* ───────────── nạp dữ liệu ───────────── */
 
 async function loadCatalog() {
@@ -130,7 +176,8 @@ function openLetter(L) {
     const cell = document.createElement('button');
     cell.className = 'hero-cell' + (picked ? ' has-skin' : '');
     cell.innerHTML =
-      `<div class="hc-meta">
+      `<div class="hc-ava-wrap">${iconImg(h.i, picked ? picked.id : null, 'hc-icon')}</div>
+       <div class="hc-meta">
          <span class="hc-name"></span>
          <span class="hc-skins">${h.s.length} skin · <em class="hc-id">${h.i}</em></span>
        </div>
@@ -159,7 +206,7 @@ function openHero(h) {
     const cell = document.createElement('button');
     cell.className = 'skin-cell' + (CART[sid] ? ' selected' : '');
     cell.innerHTML =
-      `<span class="sk-num">${idx + 1}</span>
+      `${iconImg(h.i, sid, 'sk-icon')}
        <span class="sk-name"></span>
        <span class="sk-id">${sid}</span>
        <span class="sk-chev">${CART[sid] ? '✓' : '›'}</span>`;
@@ -211,7 +258,7 @@ function renderCart() {
     const row = document.createElement('div');
     row.className = 'cart-item';
     row.innerHTML =
-      `<div class="cart-icon">${i + 1}</div>
+      `${iconImg(c.heroId, c.id, 'cart-avatar')}
        <div>
          <div class="cart-name"></div>
          <div class="cart-source"></div>
@@ -270,7 +317,9 @@ function doSearch(q) {
     const sub = hit.type === 'hero'
       ? `Tướng · ${hit.h.s.length} skin`
       : `${hit.h.n} · ID ${hit.sid}`;
-    row.innerHTML = `<div class="sr-meta"><div class="sr-name"></div><div class="sr-hero"></div></div><span class="chevron">›</span>`;
+    row.innerHTML = `${iconImg(hit.h.i, hit.type === 'skin' ? hit.sid : null, 'sr-icon')}`
+      + `<div class="sr-meta"><div class="sr-name"></div><div class="sr-hero"></div></div>`
+      + `<span class="chevron">›</span>`;
     row.querySelector('.sr-name').textContent = title;
     row.querySelector('.sr-hero').textContent = sub;
     row.onclick = () => {
