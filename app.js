@@ -476,6 +476,20 @@ function runMod() {
     return;
   }
 
+  /*
+   * QUAN TRỌNG — sendData CHỈ chạy khi app mở bằng NÚT DƯỚI BÀN PHÍM.
+   * Mở bằng menu ☰ hoặc link trực tiếp thì sendData im lặng không làm gì,
+   * người dùng bấm mãi mà bot không nhận được skin nào.
+   *
+   * Dấu hiệu nhận biết: mở bằng nút bàn phím thì initData RỖNG.
+   * Có initData => mở sai cách => cảnh báo ngay.
+   */
+  const hasInitData = !!(tg.initData && tg.initData.length > 0);
+  if (hasInitData) {
+    alertWrongLaunch();
+    return;
+  }
+
   buzz('ok');
   $('launch').classList.add('on');
   paintIcons($('launch'));
@@ -492,6 +506,22 @@ function runMod() {
     $('launch').classList.remove('on');
     toast('Không gửi được: ' + e.message, 'err', 4000);
   }
+}
+
+function alertWrongLaunch() {
+  buzz('err');
+  const msg =
+    'Bạn đang mở giao diện SAI CÁCH nên không gửi được về bot.\n\n' +
+    'Hãy đóng giao diện này, quay lại chat với bot và bấm nút ' +
+    '"🎮 MỞ GIAO DIỆN CHỌN SKIN" NGAY DƯỚI BÀN PHÍM.\n\n' +
+    'Không thấy nút thì gõ /webapp cho bot.\n\n' +
+    '(Skin đã chọn vẫn được giữ nguyên.)';
+  try {
+    tg.showAlert ? tg.showAlert(msg) : alert(msg);
+  } catch (e) {
+    alert(msg);
+  }
+  toast('Mở bằng nút dưới bàn phím nhé!', 'err', 5000);
 }
 
 /* ════════════ ĐIỀU HƯỚNG ════════════ */
