@@ -513,7 +513,7 @@ function alertWrongLaunch() {
   const msg =
     'Bạn đang mở giao diện SAI CÁCH nên không gửi được về bot.\n\n' +
     'Hãy đóng giao diện này, quay lại chat với bot và bấm nút ' +
-    '"🎮 MỞ GIAO DIỆN CHỌN SKIN" NGAY DƯỚI BÀN PHÍM.\n\n' +
+    '"🎨 CHỌN SKIN" NGAY DƯỚI BÀN PHÍM.\n\n' +
     'Không thấy nút thì gõ /webapp cho bot.\n\n' +
     '(Skin đã chọn vẫn được giữ nguyên.)';
   try {
