@@ -227,10 +227,22 @@ function bindImgs(root) {
 
 /* ════════════ DỮ LIỆU ════════════ */
 
-async function loadJson(n) {
-  const r = await fetch(`${n}?t=${DATA.v || Date.now()}`, { cache: 'default' });
-  if (!r.ok) throw new Error(`${n}: HTTP ${r.status}`);
-  return r.json();
+async function loadJson(n, timeoutMs = 10000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const r = await fetch(`${n}?t=${DATA.v || Date.now()}`,
+                          { cache: 'default', signal: ctrl.signal });
+    if (!r.ok) throw new Error(`${n}: HTTP ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      throw new Error(`${n}: mạng chậm quá, quá ${timeoutMs / 1000}s không phản hồi`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function loadAll() {
@@ -622,6 +634,23 @@ function renderUser() {
 /* ════════════ KHỞI ĐỘNG ════════════ */
 
 async function init() {
+  // Chốt chặn cuối: nếu sau 12 giây vẫn còn màn hình loading (nghĩa là có
+  // lỗi JS nào đó chặn đứng luồng chạy mà chưa lường hết được), tự hiện
+  // nút tải lại — không bao giờ để người dùng bị kẹt vô thời hạn không
+  // biết làm gì, đây chính là triệu chứng "cứ đang tải rồi không hiện gì".
+  const watchdog = setTimeout(() => {
+    const skel = $('skel');
+    if (skel && !skel.hidden) {
+      skel.hidden = true;
+      $('alpha').innerHTML =
+        `<div class="empty" style="grid-column:1/-1">${svg('box')}
+         <p>Tải hơi lâu, có thể do mạng chậm.<br>
+         <button onclick="location.reload()" style="margin-top:10px;padding:9px 18px;
+           border:0;border-radius:10px;background:var(--cy);color:#04121c;
+           font-weight:800;cursor:pointer">Tải lại</button></p></div>`;
+    }
+  }, 12000);
+
   try {
     tg?.ready(); tg?.expand();
     tg?.setHeaderColor?.('#04060e');
@@ -629,14 +658,18 @@ async function init() {
     tg?.disableVerticalSwipes?.();
   } catch (e) {}
 
-  paintIcons();
-  renderUser();
+  // Mỗi bước bọc riêng — lỗi ở BƯỚC NÀY (chỉ chạy khi mở qua Telegram thật,
+  // vì test URL trần trên trình duyệt luôn đi nhánh an toàn của renderUser)
+  // không được phép chặn đường tới loadAll() phía dưới.
+  try { paintIcons(); } catch (e) { console.warn('paintIcons lỗi:', e); }
+  try { renderUser(); } catch (e) { console.warn('renderUser lỗi:', e); }
 
   try { CART = JSON.parse(localStorage.getItem(CART_KEY) || '{}') || {}; } catch (e) { CART = {}; }
 
   try {
     await loadAll();
   } catch (e) {
+    clearTimeout(watchdog);
     $('skel').hidden = true;
     $('alpha').innerHTML =
       `<div class="empty" style="grid-column:1/-1">${svg('box')}
@@ -644,6 +677,8 @@ async function init() {
     toast(e.message, 'err', 5000);
     return;
   }
+
+  clearTimeout(watchdog);   // loadAll() xong -> khỏi cần chốt chặn nữa
 
   // dọn skin không còn tồn tại + cắt xuống đúng giới hạn
   const valid = new Set();
