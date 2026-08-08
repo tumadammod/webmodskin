@@ -6,7 +6,7 @@
 const tg = window.Telegram?.WebApp;
 const $  = (id) => document.getElementById(id);
 
-const MAX_PICK   = 10;                       // ← giới hạn 10 skin
+const MAX_PICK   = 5;                        // ← giới hạn 5 skin
 const CART_KEY   = 'tmd_cart_v3';
 const HAPTIC_KEY = 'tmd_haptic';
 const IMGC_KEY   = 'tmd_imgcache_v1';
