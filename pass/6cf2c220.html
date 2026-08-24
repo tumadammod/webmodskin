@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#04060e">
+<title>Mật khẩu nhận file</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;800;900&family=Inter:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --cy:#33e6ff; --vi:#9b5cff; --mg:#ff3d9a; --lm:#46ffa8; --am:#ffcf4a; --rd:#ff4f6b;
+  --bg:#04060e; --bg2:#070b18; --tx:#dce6ff; --tx-hi:#f2f7ff; --tx-dim:#6f7fa8;
+  --line:rgba(51,230,255,.18); --panel:rgba(14,22,44,.6);
+}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh;display:flex;align-items:center;justify-content:center;
+  padding:24px;background:var(--bg);color:var(--tx);overflow-x:hidden;
+  font-family:'Inter',-apple-system,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased}
+h1,.code,.mono{font-family:'Orbitron','Inter',sans-serif}
+
+#bg{position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(800px 560px at 82% -8%, rgba(51,230,255,.16), transparent 62%),
+    radial-gradient(700px 520px at -8% 30%, rgba(155,92,255,.16), transparent 62%),
+    radial-gradient(620px 480px at 50% 112%, rgba(255,61,154,.13), transparent 62%),
+    linear-gradient(180deg,var(--bg),var(--bg2))}
+#grid{position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.45;
+  background-image:linear-gradient(rgba(51,230,255,.07) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(51,230,255,.07) 1px,transparent 1px);
+  background-size:42px 42px;
+  mask-image:radial-gradient(circle at 50% 40%,#000 0%,transparent 75%)}
+
+.card{position:relative;max-width:400px;width:100%;padding:30px 24px;border-radius:18px;
+  text-align:center;background:var(--panel);border:1px solid var(--line);
+  backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 20px 50px rgba(0,0,0,.5)}
+.card::before,.card::after{content:'';position:absolute;width:14px;height:14px;pointer-events:none;
+  border:2px solid var(--cy);opacity:.6}
+.card::before{top:-1px;left:-1px;border-right:0;border-bottom:0;border-radius:18px 0 0 0}
+.card::after{bottom:-1px;right:-1px;border-left:0;border-top:0;border-radius:0 0 18px 0}
+
+.ic{display:inline-flex;width:1em;height:1em;vertical-align:-.15em}
+.ic svg{width:100%;height:100%;display:block}
+
+.lb{display:flex;align-items:center;justify-content:center;gap:8px;
+  font-size:12px;font-weight:800;letter-spacing:.16em;color:var(--cy);text-transform:uppercase}
+.lb .ic{font-size:16px;filter:drop-shadow(0 0 6px rgba(51,230,255,.7))}
+
+.code{font-size:42px;font-weight:900;letter-spacing:.1em;margin:18px 0 6px;color:var(--tx-hi);
+  font-variant-numeric:tabular-nums;text-shadow:0 0 24px rgba(51,230,255,.55)}
+
+.ring{margin:14px auto 18px;width:64px;height:64px;position:relative}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:5}
+.ring .bg{stroke:rgba(255,255,255,.08)}
+.ring .fg{stroke:var(--cy);stroke-linecap:round;transition:stroke-dashoffset 1s linear,stroke .3s}
+.ring .tx{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;color:var(--tx-hi)}
+
+button.cp{border:0;cursor:pointer;padding:13px 26px;border-radius:13px;font-weight:900;
+  font-size:13px;letter-spacing:.04em;text-transform:uppercase;
+  display:inline-flex;align-items:center;gap:9px;
+  background:linear-gradient(115deg,var(--cy),var(--vi));color:#04121c;
+  box-shadow:0 8px 26px rgba(51,230,255,.35),inset 0 1px 0 rgba(255,255,255,.3);
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1),background .25s,box-shadow .25s}
+button.cp:active{transform:scale(.96)}
+button.cp.done{background:linear-gradient(115deg,var(--lm),#1fae7a);
+  box-shadow:0 8px 26px rgba(70,255,168,.4),inset 0 1px 0 rgba(255,255,255,.3)}
+button.cp .ic{font-size:16px}
+
+.meta{margin-top:20px;padding-top:16px;border-top:1px solid var(--line);
+  display:grid;gap:9px;text-align:left}
+.meta-row{display:flex;align-items:center;gap:9px;font-size:11.5px;color:var(--tx-dim)}
+.meta-row .ic{font-size:14px;color:var(--cy);flex-shrink:0}
+.meta-row b{color:var(--tx);font-weight:700}
+
+.hint{margin-top:14px;font-size:11px;color:var(--tx-dim);line-height:1.6}
+
+.state-expired{display:none}
+.state-expired.on{display:block}
+.state-expired .ic{width:52px;height:52px;color:var(--rd);
+  filter:drop-shadow(0 0 16px rgba(255,79,107,.55));margin-bottom:14px;
+  animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55;transform:scale(.92)}}
+.state-expired h2{margin:0 0 8px;font-size:16px;font-weight:900;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--rd)}
+.state-expired p{margin:0;font-size:12.5px;color:var(--tx-dim);line-height:1.6}
+.state-expired .retry{margin-top:18px;border:1px solid var(--line);background:rgba(51,230,255,.08);
+  color:var(--cy);border-radius:12px;padding:11px 20px;font-weight:800;font-size:12.5px;
+  cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.state-live.off{display:none}
+</style></head>
+<body>
+<div id="bg"></div><div id="grid"></div>
+
+<div class="card">
+
+  <div class="state-live" id="live">
+    <div class="lb"><span class="ic"><svg viewBox="0 0 24 24" fill="none"><path d="M6 10V8a6 6 0 0 1 12 0v2M5 10h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="15.5" r="1.6" fill="currentColor"/></svg></span>Mật khẩu nhận file</div>
+    <div class="code" id="code">221 340</div>
+
+    <div class="ring">
+      <svg viewBox="0 0 64 64">
+        <circle class="bg" cx="32" cy="32" r="27"></circle>
+        <circle class="fg" id="ringFg" cx="32" cy="32" r="27"
+          stroke-dasharray="169.6" stroke-dashoffset="0"></circle>
+      </svg>
+      <div class="tx" id="ringTx">--:--</div>
+    </div>
+
+    <button class="cp" id="cpBtn"><span class="ic" id="cpIcon"><svg viewBox="0 0 24 24" fill="none"><rect x="8" y="8" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" stroke="currentColor" stroke-width="1.8"/></svg></span><span id="cpTxt">Copy mật khẩu</span></button>
+
+    <div class="meta">
+      <div class="meta-row"><span class="ic"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="1.7"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>Tạo lúc: <b id="tFrom"></b></div>
+      <div class="meta-row"><span class="ic"><svg viewBox="0 0 24 24" fill="none"><path d="M6 3h12M6 21h12M7 3c0 4 3.5 5.5 5 6.5M17 3c0 4-3.5 5.5-5 6.5M7 21c0-4 3.5-5.5 5-6.5M17 21c0-4-3.5-5.5-5-6.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></span>Hết hạn lúc: <b id="tUntil"></b></div>
+    </div>
+
+    <div class="hint">Dán mật khẩu vào khung chat với bot để nhận file.</div>
+  </div>
+
+  <div class="state-expired" id="expired">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5 21.5 20h-19L12 3.5z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v4.5" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/><circle cx="12" cy="17.3" r="1" fill="currentColor"/></svg></span>
+    <h2>Mật khẩu này đã hết hạn</h2>
+    <p>Mã trên trang này không còn dùng được nữa.<br>
+    Mở lại Telegram, bấm <b>RUN</b> trong bot (hoặc gõ /webapp) để lấy
+    mật khẩu mới — chỉ bot mới tạo được mã mới, trang này không tự làm
+    được.</p>
+  </div>
+
+</div>
+
+
+
+<script>
+(function(){
+  var CODE = "221340";
+  var FROM = 1787554403 * 1000;
+  var UNTIL = 4941154433 * 1000;
+  var TOTAL = UNTIL - FROM;
+  var CIRC = 169.6;
+
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function fmtDT(ts){
+    var d = new Date(ts);
+    return pad(d.getHours())+':'+pad(d.getMinutes())+':'+pad(d.getSeconds())+
+      '  '+pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();
+  }
+
+  document.getElementById('tFrom').textContent = fmtDT(FROM);
+  document.getElementById('tUntil').textContent =
+    (TOTAL > 365 * 86400 * 1000) ? 'Không giới hạn' : fmtDT(UNTIL);
+
+  var ringFg = document.getElementById('ringFg');
+  var ringTx = document.getElementById('ringTx');
+  var liveEl = document.getElementById('live');
+  var expiredEl = document.getElementById('expired');
+  var expiredShown = false;
+
+  function tick(){
+    // Vô hạn (PASSWORD_GATE_SESSION_HOURS=0 -> TOTAL đặt rất lớn ở phía
+    // bot) -> không đếm ngược số vô nghĩa (hàng triệu phút), hiện cố định.
+    if (TOTAL > 365 * 86400 * 1000){
+      ringFg.setAttribute('stroke-dashoffset', '0');
+      ringFg.setAttribute('stroke', 'var(--cy)');
+      ringTx.textContent = '∞';
+      return;
+    }
+
+    var now = Date.now();
+    var left = UNTIL - now;
+
+    if (left <= 0){
+      if (!expiredShown){
+        expiredShown = true;
+        liveEl.classList.add('off');
+        expiredEl.classList.add('on');
+      }
+      return;
+    }
+
+    var frac = Math.max(0, Math.min(1, left / TOTAL));
+    ringFg.setAttribute('stroke-dashoffset', String(CIRC * (1 - frac)));
+    ringFg.setAttribute('stroke', frac < .15 ? 'var(--rd)' : frac < .35 ? 'var(--am)' : 'var(--cy)');
+
+    var m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+    ringTx.textContent = m + ':' + pad(s);
+  }
+
+  var cpBtn = document.getElementById('cpBtn');
+  var cpIcon = document.getElementById('cpIcon');
+  var cpTxt = document.getElementById('cpTxt');
+  cpBtn.addEventListener('click', function(){
+    function done(){
+      cpBtn.classList.add('done');
+      cpIcon.innerHTML = "<svg viewBox=\"0 0 24 24\" fill=\"none\"><path d=\"M5 12.6 9.6 17 19 7.5\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>";
+      cpTxt.textContent = 'Đã copy!';
+      setTimeout(function(){
+        cpBtn.classList.remove('done');
+        cpIcon.innerHTML = "<svg viewBox=\"0 0 24 24\" fill=\"none\"><rect x=\"8\" y=\"8\" width=\"12\" height=\"12\" rx=\"2\" stroke=\"currentColor\" stroke-width=\"1.8\"/><path d=\"M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2\" stroke=\"currentColor\" stroke-width=\"1.8\"/></svg>";
+        cpTxt.textContent = 'Copy mật khẩu';
+      }, 1800);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(CODE).then(done).catch(fallback);
+    } else {
+      fallback();
+    }
+    function fallback(){
+      var ta = document.createElement('textarea');
+      ta.value = CODE; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch(e) {}
+      document.body.removeChild(ta);
+    }
+  });
+
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+</body></html>
